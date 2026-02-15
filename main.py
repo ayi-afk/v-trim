@@ -233,7 +233,7 @@ class VStudioPro:
 
     def async_check_ffmpeg(self):
         try:
-            subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+            subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW,)
             self.ffmpeg_available = True
         except:
             self.ffmpeg_available = False
@@ -443,7 +443,20 @@ class VStudioPro:
         if fv:
             self.video_path.set(fv)
             try:
-                d = float(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', fv]).decode().strip())
+                # d = float(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', fv]).decode().strip())
+                result = subprocess.run(
+                    [
+                        "ffprobe",
+                        "-v", "error",
+                        "-show_entries", "format=duration",
+                        "-of", "default=noprint_wrappers=1:nokey=1",
+                        fv
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                d = float(result.stdout.decode().strip())
                 self.duration = d; self.trim_start = 0.0; self.trim_end = d
                 self.slider.set_range(d)
                 self.time_lbl.config(text=f"START: {self.format_time(0.0)} | END: {self.format_time(d)}")
@@ -470,7 +483,7 @@ class VStudioPro:
         def gen():
             try:
                 tmp = "vsp_prev.jpg"
-                subprocess.run(['ffmpeg', '-y', '-ss', str(ts), '-i', v, '-vframes', '1', '-q:v', '5', tmp], capture_output=True)
+                subprocess.run(['ffmpeg', '-y', '-ss', str(ts), '-i', v, '-vframes', '1', '-q:v', '5', tmp], capture_output=True, )
                 img = Image.open(tmp).convert("RGB")
                 self.root.after(0, lambda: self.render_prev(img))
             except: pass
@@ -537,7 +550,7 @@ class VStudioPro:
         total_d = self.trim_end - self.trim_start
         def task():
             try:
-                p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE, universal_newlines=True)
+                p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE, universal_newlines=True, creationflags=subprocess.CREATE_NO_WINDOW,)
                 t_re = re.compile(r"time=(\d{2}:\d{2}:\d{2}\.\d+)")
                 while True:
                     l = p.stderr.readline()

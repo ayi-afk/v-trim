@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+build
+dist
+main.build
+main.dist
+main.onefile-build
+main.exe
+dist

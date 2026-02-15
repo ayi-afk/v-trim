@@ -1,0 +1,1 @@
+uv run pyinstaller --onefile --noconsole main.py
