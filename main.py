@@ -338,12 +338,26 @@ class VStudioPro:
         self.run_btn = ModernButton(self.btn_area, "RUN FFMPEG PROCESS", self.run_ffmpeg, width=300, height=52, bg="#3b82f6", radius=15)
         self.run_btn.pack(pady=5)
 
-        self.mani = tk.Frame(self.sidebar, bg="#0f172a", padx=20)
-        self.mani.pack(fill="x", side="bottom", pady=20)
-        self.mani_lbl = tk.Label(self.mani, text="NO MEDIA", bg="#0f172a", fg="#475569", font=("Segoe UI", 8))
-        self.mani_lbl.pack(side="left")
+        # --- LOADED MANIFEST AREA ---
+        self.mani = tk.Frame(self.sidebar, bg="#0f172a", padx=20, pady=10)
+        self.mani.pack(fill="x", side="bottom")
         
-        self.audio_ctrls = tk.Frame(self.mani, bg="#0f172a")
+        # Row 1: Video Info
+        self.v_row = tk.Frame(self.mani, bg="#0f172a")
+        self.v_row.pack(fill="x", pady=(0, 5))
+        tk.Label(self.v_row, text="VIDEO:", bg="#0f172a", fg="#3b82f6", font=("Segoe UI", 7, "bold")).pack(side="left")
+        self.v_lbl = tk.Label(self.v_row, text="NONE", bg="#0f172a", fg="#475569", font=("Segoe UI", 8), anchor="w")
+        self.v_lbl.pack(side="left", fill="x", expand=True, padx=(5, 0))
+
+        # Row 2: Audio Info + Controls
+        self.a_row = tk.Frame(self.mani, bg="#0f172a")
+        self.a_row.pack(fill="x")
+        tk.Label(self.a_row, text="AUDIO:", bg="#0f172a", fg="#a855f7", font=("Segoe UI", 7, "bold")).pack(side="left")
+        self.a_lbl = tk.Label(self.a_row, text="NONE", bg="#0f172a", fg="#475569", font=("Segoe UI", 8), anchor="w")
+        self.a_lbl.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        
+        self.audio_ctrls = tk.Frame(self.a_row, bg="#0f172a")
+        self.audio_ctrls.pack(side="right", padx=(10, 0))
         self.p_btn = ModernButton(self.audio_ctrls, "▶", self.toggle_audio, width=32, height=25, radius=5)
         self.p_btn.pack(side="left", padx=2)
         self.s_btn = ModernButton(self.audio_ctrls, "■", self.stop_audio, width=32, height=25, radius=5, bg="#ef4444")
@@ -434,12 +448,12 @@ class VStudioPro:
                 self.slider.set_range(d)
                 self.time_lbl.config(text=f"START: {self.format_time(0.0)} | END: {self.format_time(d)}")
                 self.update_prev(0)
+                self.v_lbl.config(text=os.path.basename(fv), fg="#60a5fa")
             except: pass
         if fa:
             self.audio_path.set(fa)
             self.audio_player.open(fa)
-            self.audio_ctrls.pack(side="right")
-        self.mani_lbl.config(text=f"V: {os.path.basename(fv or '')} | A: {os.path.basename(fa or '')}")
+            self.a_lbl.config(text=os.path.basename(fa), fg="#c084fc")
         self.update_command()
 
     def on_slider(self, s, e, h):
