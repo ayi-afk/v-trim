@@ -1,1 +1,1 @@
-uv run pyinstaller --onefile --noconsole main.py
+uv run pyinstaller main.spec

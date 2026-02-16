@@ -12,7 +12,7 @@ import ctypes
 import webbrowser
 from PIL import Image, ImageTk
 
-__VERSION__ = "0.1.1"
+__VERSION__ = "0.1.2"
 REPO_LINK = "https://github.com/ayi-afk/v-trim"
 
 # --- DPI AWARENESS ---
@@ -201,6 +201,7 @@ class VTrim:
         if platform.system() == "Windows":
             self.root.withdraw()
             self.taskbar_shadow = tk.Toplevel(self.root)
+            self.taskbar_shadow.attributes("-alpha", 0.0)  
             self.taskbar_shadow.geometry("0x0+0+0")
             self.taskbar_shadow.overrideredirect(False) # Shows in taskbar
             self.taskbar_shadow.title("V-Trim")
@@ -511,7 +512,7 @@ class VTrim:
         def gen():
             try:
                 tmp = "vsp_prev.jpg"
-                subprocess.run(['ffmpeg', '-y', '-ss', str(ts), '-i', v, '-vframes', '1', '-q:v', '5', tmp], capture_output=True, )
+                subprocess.run(['ffmpeg', '-y', '-ss', str(ts), '-i', v, '-vframes', '1', '-q:v', '5', tmp], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 img = Image.open(tmp).convert("RGB")
                 self.root.after(0, lambda: self.render_prev(img))
             except: pass
