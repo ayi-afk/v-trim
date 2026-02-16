@@ -1,6 +1,7 @@
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import os
 import platform
 import subprocess
@@ -10,6 +11,9 @@ import time
 import ctypes
 import webbrowser
 from PIL import Image, ImageTk
+
+__VERSION__ = "0.1.1"
+REPO_LINK = "https://github.com/ayi-afk/v-trim"
 
 # --- DPI AWARENESS ---
 if platform.system() == "Windows":
@@ -186,7 +190,7 @@ class RangeSlider(tk.Canvas):
 
 # --- APP CLASS ---
 
-class VStudioPro:
+class VTrim:
     def __init__(self, root):
         self.root = root
         self.root.geometry("1200x900+100+100")
@@ -199,7 +203,7 @@ class VStudioPro:
             self.taskbar_shadow = tk.Toplevel(self.root)
             self.taskbar_shadow.geometry("0x0+0+0")
             self.taskbar_shadow.overrideredirect(False) # Shows in taskbar
-            self.taskbar_shadow.title("V-Studio Pro")
+            self.taskbar_shadow.title("V-Trim")
             self.taskbar_shadow.bind("<Map>", lambda e: self.root.deiconify())
             self.taskbar_shadow.bind("<Unmap>", lambda e: self.root.withdraw())
             # Close main when shadow is closed via taskbar (if it was a standard window)
@@ -222,6 +226,7 @@ class VStudioPro:
         self.is_maximized = False
         self.is_processing = False
         self.ffmpeg_available = False
+        self.ffprobe_available = False
         
         self.setup_layout()
         self.update_command()
@@ -234,16 +239,25 @@ class VStudioPro:
     def async_check_ffmpeg(self):
         try:
             subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW,)
+            subprocess.run(["ffprobe", "-version"], capture_output=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW,)
             self.ffmpeg_available = True
+            self.ffprobe_available = True
         except:
             self.ffmpeg_available = False
+            self.ffprobe_available = True
         
         # Update UI on completion
         self.root.after(0, self.update_ffmpeg_ui)
 
     def update_ffmpeg_ui(self):
-        if not self.ffmpeg_available:
-            self.missing_btn = ModernButton(self.btn_area, "FFMPEG MISSING - CLICK TO DOWNLOAD", 
+        text = ""
+        if  not self.ffmpeg_available:
+            text = "FFMPEG"
+        if not self.ffprobe_available:
+            text += " & FFPROBE" if not self.ffmpeg_available else "FFPROBE"
+
+        if text:
+            self.missing_btn = ModernButton(self.btn_area, f"{text} MISSING - CLICK TO DOWNLOAD", 
                                           lambda: webbrowser.open("https://ffmpeg.org/download.html"),
                                           width=300, height=35, bg="#ef4444", radius=10, font_size=7)
             self.missing_btn.pack(pady=5)
@@ -256,7 +270,7 @@ class VStudioPro:
         self.header.bind("<B1-Motion>", self.do_drag)
         self.header.bind("<Double-Button-1>", lambda e: self.toggle_maximize())
         
-        tk.Label(self.header, text="V-STUDIO PRO", fg="#3b82f6", bg="#030712", font=("Segoe UI", 20, "bold")).pack(side="left")
+        tk.Label(self.header, text="V-TRIM", fg="#3b82f6", bg="#030712", font=("Segoe UI", 20, "bold")).pack(side="left")
         
         ctrls = tk.Frame(self.header, bg="#030712")
         ctrls.pack(side="right")
@@ -279,6 +293,13 @@ class VStudioPro:
         self.canvas.pack(fill="both", expand=True)
         self.msg = self.canvas.create_text(0,0, text="NO MEDIA LOADED", fill="#334155", font=("Segoe UI", 12))
         self.canvas.bind("<Configure>", lambda e: self.center_msg())
+
+        # DnD setup
+        def on_drop(event):
+            paths = root.tk.splitlist(event.data)
+            self.smart_load(paths)    
+        self.canvas.drop_target_register(DND_FILES)
+        self.canvas.dnd_bind("<<Drop>>", on_drop)
 
         timeline = tk.Frame(left, bg="#030712", pady=20)
         timeline.pack(fill="x")
@@ -363,6 +384,12 @@ class VStudioPro:
         self.s_btn = ModernButton(self.audio_ctrls, "■", self.stop_audio, width=32, height=25, radius=5, bg="#ef4444")
         self.s_btn.pack(side="left", padx=2)
 
+        self.version = tk.Frame(self.a_row, bg="#0f172a")
+        self.version.pack(side="right", padx=(10, 0))
+        self.version_text = tk.Label(self.root, text=f"version:{__VERSION__}", bg="#0f172a", fg="#3b82f6", font=("Segoe UI", 7, "bold"))
+        self.version_text.pack(side="left")
+        self.version_text.bind("<Button-1>", lambda e: webbrowser.open_new(REPO_LINK))
+
         # Custom Resize Handle (Bottom Right)
         self.resizer = tk.Frame(self.root, bg="#030712", cursor="size_nw_se", width=12, height=12)
         self.resizer.place(relx=1.0, rely=1.0, anchor="se")
@@ -431,12 +458,13 @@ class VStudioPro:
         p = t.split(':')
         return float(p[0])*3600 + float(p[1])*60 + float(p[2])
 
-    def smart_load(self):
-        fs = filedialog.askopenfilenames()
-        if not fs: return
+    def smart_load(self, files: list[str] | None=None):
+        if not files:
+            files = filedialog.askopenfilenames()        
+        if not files: return
         v_ext, a_ext = ('.mp4', '.mkv', '.mov', '.avi'), ('.mp3', '.wav', '.aac', '.m4a')
         fv, fa = None, None
-        for f in fs:
+        for f in files:
             e = os.path.splitext(f)[1].lower()
             if not fv and e in v_ext: fv = f
             elif not fa and e in a_ext: fa = f
@@ -570,4 +598,6 @@ class VStudioPro:
         elif code != -1: messagebox.showerror("Error", "FFmpeg failed.")
 
 if __name__ == "__main__":
-    root = tk.Tk(); app = VStudioPro(root); root.mainloop()
+    root = TkinterDnD.Tk(); 
+    app = VTrim(root); 
+    root.mainloop()

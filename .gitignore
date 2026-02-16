@@ -16,3 +16,6 @@ main.dist
 main.onefile-build
 main.exe
 dist
+
+preview.tmp.jpg
+vsp_prev.jpg
