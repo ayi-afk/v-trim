@@ -13,7 +13,7 @@ import ctypes
 import webbrowser
 from PIL import Image, ImageTk
 
-__VERSION__ = "0.1.2"
+__VERSION__ = "0.1.3"
 REPO_LINK = "https://github.com/ayi-afk/v-trim"
 STATE_FILE = "window_state"
 
