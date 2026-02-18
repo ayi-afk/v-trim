@@ -1,5 +1,6 @@
 
 import tkinter as tk
+from io import BytesIO
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import os
@@ -14,6 +15,7 @@ from PIL import Image, ImageTk
 
 __VERSION__ = "0.1.2"
 REPO_LINK = "https://github.com/ayi-afk/v-trim"
+STATE_FILE = "window_state"
 
 # --- DPI AWARENESS ---
 if platform.system() == "Windows":
@@ -25,6 +27,28 @@ if platform.system() == "Windows":
             ctypes.windll.user32.SetProcessDPIAware()
         except Exception:
             pass
+
+# remember window state
+def load_geometry(root, default:str) -> None:
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                geom = f.read().strip()
+            if geom:
+                root.geometry(geom)                            
+        except Exception:
+            pass
+    else:
+        root.geometry(default)
+
+def save_geometry(root):
+    try:
+        root.update_idletasks()
+        geom = root.wm_geometry()
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            f.write(geom)
+    except Exception:
+        pass
 
 # --- COLOR UTILS ---
 def lighten_color(hex_color, amount=0.15):
@@ -85,6 +109,7 @@ class ModernButton(tk.Canvas):
         self.font_size = font_size
         self.is_active = False
         self.is_disabled = False
+        self._preview_debounce_id = -1
         
         self.bind("<Button-1>", self._on_click)
         self.bind("<Enter>", self._on_enter)
@@ -192,8 +217,9 @@ class RangeSlider(tk.Canvas):
 
 class VTrim:
     def __init__(self, root):
-        self.root = root
-        self.root.geometry("1200x900+100+100")
+        self.root = root        
+        load_geometry(root, default="1200x900+100+100")        
+        # self.root.geometry("1200x900+100+100")
         self.root.configure(bg="#030712")
         self.root.overrideredirect(True)
         
@@ -212,7 +238,7 @@ class VTrim:
 
         self._drag_data = {"x": 0, "y": 0}
         self._resize_data = {"x": 0, "y": 0, "w": 0, "h": 0}
-        self.previous_geometry = "1200x900+100+100"
+        self.previous_geometry = root.wm_geometry()
         
         self.audio_player = WindowsAudioPlayer()
         self.is_paused = False
@@ -230,8 +256,7 @@ class VTrim:
         self.ffprobe_available = False
         
         self.setup_layout()
-        self.update_command()
-        
+        self.update_command()       
         # Async Check FFmpeg
         threading.Thread(target=self.async_check_ffmpeg, daemon=True).start()
         
@@ -403,6 +428,7 @@ class VTrim:
 
     def on_close(self):
         self.audio_player.stop()
+        save_geometry(self.root)
         self.root.destroy()
 
     def minimize_window(self):
@@ -498,25 +524,43 @@ class VTrim:
             self.a_lbl.config(text=os.path.basename(fa), fg="#c084fc")
         self.update_command()
 
-    def on_slider(self, s, e, h):
+    def on_slider(self, s, e, h):        
         self.trim_start, self.trim_end = s, e
         self.time_lbl.config(text=f"START: {self.format_time(s)} | END: {self.format_time(e)}")
         self.update_command()
         pt = s if h == "start" else e
-        if not hasattr(self, '_timer'): self._timer = self.root.after(80, lambda: self.update_prev(pt))
+        
+        # if not hasattr(self, '_timer'): self._timer = self.root.after(80, lambda: self.update_prev(pt))
+        if hasattr(self, "_timer"):
+            self.root.after_cancel(self._timer)
+        self._timer = self.root.after(60, lambda: self.update_prev(pt))
 
-    def update_prev(self, ts):
+    def update_prev(self, ts):       
         if hasattr(self, '_timer'): self.root.after_cancel(self._timer); del self._timer
         v = self.video_path.get()
         if not v: return
-        def gen():
+        def gen(ts):            
             try:
                 tmp = "vsp_prev.jpg"
-                subprocess.run(['ffmpeg', '-y', '-ss', str(ts), '-i', v, '-vframes', '1', '-q:v', '5', tmp], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                img = Image.open(tmp).convert("RGB")
+                proc = subprocess.run([
+                        'ffmpeg', '-y', 
+                        '-ss', str(ts), 
+                        '-i', v, 
+                        '-vframes', '1', 
+                        "-f", "image2pipe",
+                        "-vcodec", "mjpeg", 
+                        '-q:v', '5',
+                        "-"], 
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                )
+                if proc.returncode != 0 or not proc.stdout:                    
+                    return
+                img = Image.open(BytesIO(proc.stdout)).convert("RGB")
                 self.root.after(0, lambda: self.render_prev(img))
             except: pass
-        threading.Thread(target=gen, daemon=True).start()
+        threading.Thread(target=gen, args=(ts,), daemon=True).start()
 
     def render_prev(self, img):
         cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
